@@ -1,0 +1,97 @@
+---
+title: "Generation_of_mgf_and_csv_file"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+
+library(MALDIquant)
+
+library(MALDIquantForeign)
+
+
+
+path <- "C:/Users/Desktop/mzML" ## Set path for your data (mzML)
+
+setwd(path)
+
+
+## Warning : Your data must be converted into .xy format using the flexAnalysis manufacturer's software
+## (.d to .xy)
+spectra <- importTab(path, pattern = "\\.xy", header = FALSE, sep = " ") ## Import your data 
+
+
+liste_fichiers <- list.files(path) 
+
+NameListe = as.list(liste_fichiers)
+
+condition = c(15,       ## HwS
+
+              30,       ## baseline
+
+              3)        ## SnR
+
+spectra2 = transformIntensity(spectra, method="sqrt") ## This step is not necessary; MetGem performs this normalization when importing the data 
+
+spectra2 = smoothIntensity(spectra2, method="SavitzkyGolay", 
+
+                           halfWindowSize=condition[1])
+
+spectra2 <- removeBaseline(spectra2, method="SNIP",
+
+                           iterations=condition[2])
+
+spectra2 <- calibrateIntensity(spectra2, method="TIC")
+
+peaks <- detectPeaks(spectra2, SNR=condition[3], halfWindowSize=condition[1])
+
+a = plot(peaks[[1]])
+
+
+
+peaks <- binPeaks(peaks)
+
+
+
+liste = list()
+
+mgf <- paste(path, ".mgf", sep = "") ## mgf file generation
+
+for (i in 1:length(peaks)) {
+
+    test = matrix(data = NA, nrow = length(peaks[[i]]@mass), ncol= 2)
+
+    colnames(test) = c("m/z", "intensity")
+
+    test[,1] = peaks[[i]]@mass
+
+    test[,2] = peaks[[i]]@intensity 
+
+
+
+    write.table("BEGIN IONS", file = mgf, append = TRUE, quote = FALSE, sep = "\t ", row.names = FALSE, col.names = FALSE)
+
+    write.table("PEPMASS=0", file = mgf,  append = TRUE, quote = FALSE, sep = "\t ", row.names = FALSE, col.names = FALSE)
+
+     
+
+    write.table(list(test), file = mgf,  append = TRUE, quote = FALSE, sep = "\t ", row.names = FALSE, col.names = FALSE)
+
+    write.table("END IONS", file = mgf,  append = TRUE, quote = FALSE, sep = "\t ", row.names = FALSE, col.names = FALSE) 
+
+    write.table("", file = mgf,  append = TRUE, quote = FALSE, sep = "\t ", row.names = FALSE, col.names = FALSE)
+
+}
+
+
+
+csv <- paste(path, ".txt", sep = "") ## csv file generation corresponds to metadata
+
+for (i in 1:length(liste_fichiers)) {
+
+    write.table(liste_fichiers[i], file = csv, append = TRUE, quote = FALSE, sep = "\t ", eol = "\n", na = "NA", dec = ".", row.names = FALSE, col.names = FALSE, qmethod = c("escape", "double"))
+
+}
+## You can add further information to the .csv file that corresponds to the metadata.
+```
